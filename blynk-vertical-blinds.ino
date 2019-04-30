@@ -1,23 +1,9 @@
-/*************************************************************
-  This is a DEMO. You can use it only for development and testing.
-  You should open Setting.h and modify General options.
 
-  If you would like to add these features to your product,
-  please contact Blynk for Businesses:
-
-                   http://www.blynk.io/
-
- *************************************************************/
-
-//#define USE_WROVER_BOARD
-#define USE_CUSTOM_BOARD          // See "Custom board configuration" in Settings.h
 
 #define APP_DEBUG        // Comment this out to disable debug prints
 
 #define BLYNK_PRINT Serial
-
-#include "BlynkProvisioning.h"
-
+#include <BlynkSimpleEsp32.h>
 #include <SPI.h> 
 #include <WiFi.h> 
 #include <HTTPClient.h> 
@@ -34,6 +20,13 @@
 #define DIR_CLOSE 2
 #define COOLCONF_DEFAULT 0
 #define DEBUG_STREAM terminal
+#include <Preferences.h>
+
+char auth[] = "39876a3e90ba467492ceaaf7310203df"; // Blynk auth token
+char ssid[] = "Tony"; // WiFi SSID
+char pass[] = "spockntony"; // WiFi Password
+
+Preferences preferences;
 
 WidgetTerminal terminal(V2);
 
@@ -44,10 +37,10 @@ WiFiClient client;
 int contentLength = 0;
 bool isValidContentType = false;
 
-// S3 Bucket Config
-String host = "morningrodupdate.s3.us-east-1.amazonaws.com"; // Host => bucket-name.s3.region.amazonaws.com
+// S3 Bucket Config for OTA
+String host = ""; // Host => bucket-name.s3.region.amazonaws.com
 int port = 80; // Non https. For HTTPS 443. As of today, HTTPS doesn't work.
-String bin = "/double_window_curtain.ino.bin"; // bin file name with a slash in front.
+String bin = "/blynk-vertical-blinds.ino.bin"; // bin file name with a slash in front.
 
 // Utility to extract header value from headers
 String getHeaderValue(String header, String headerName) {
@@ -249,10 +242,19 @@ void setup() {
    &TaskA,                 /* pxCreatedTask */
    1);                     /* xCoreID */ 
   
-  BlynkProvisioning.begin();
+  Serial.println("Connecting...");
+  
+//Blynk Server//
+//Blynk.begin(auth, ssid, pass);
 
-  Blynk.sendInternal("rtc", "sync"); 
+//Private Server//
+Blynk.begin(auth, ssid, pass, "morningrod.blynk.cc", 8080);
 
+  while(!Blynk.connected()){
+    delay(300);
+    Serial.print(".");
+  }
+ 
   DEBUG_STREAM.println("Connected!");
   //setSyncInterval(10 * 60);
   //DEBUG_STREAM.println("Done.");
@@ -345,7 +347,7 @@ void IndependentTask( void * parameter )
 
 void loop() {
   // This handles the network and cloud connection
-  BlynkProvisioning.run();
+  Blynk.run();
   
   if(check_timer<millis()){
     check_timer=millis()+20000; // check every 20 seconds. (avoid missing minutes)
