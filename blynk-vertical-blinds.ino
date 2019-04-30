@@ -542,20 +542,32 @@ BLYNK_WRITE(V11) { // close2
   preferences.putUChar("active_3", times[0].active);
 }
 
-BLYNK_WRITE(V121) { // set acceleration value
-  DEBUG_STREAM.print("set acceleration: ");
+BLYNK_WRITE(V31) { // set acceleration value left
+  DEBUG_STREAM.print("set acceleration 1: ");
   long q=param.asInt()*1000L;
-  preferences.putLong("accel", q);
+  preferences.putLong("accel_1", q);
   DEBUG_STREAM.println(q);
   sendData(0xA6, q);     // AMAX_M1
-  sendData(0xC6, q);     // AMAX_M2
 }
-BLYNK_WRITE(V122) { // set velocity value
-  DEBUG_STREAM.print("set velocity: ");
+BLYNK_WRITE(V32) { // set velocity value left
+  DEBUG_STREAM.print("set velocity 1: ");
   long q=param.asInt()*1000;
-  preferences.putLong("velocity", q);
+  preferences.putLong("velocity_1", q);
   DEBUG_STREAM.println(q);
   sendData(0xA7, q);     // VMAX_M1
+}
+BLYNK_WRITE(V33) { // set acceleration value right
+  DEBUG_STREAM.print("set acceleration: ");
+  long q=param.asInt()*1000L;
+  preferences.putLong("accel_2", q);
+  DEBUG_STREAM.println(q);
+  sendData(0xC6, q);     // AMAX_M2
+}
+BLYNK_WRITE(V34) { // set velocity value right
+  DEBUG_STREAM.print("set velocity: ");
+  long q=param.asInt()*1000;
+  preferences.putLong("velocity_2", q);
+  DEBUG_STREAM.println(q);
   sendData(0xC7, q);     // VMAX_M2
 }
 BLYNK_WRITE(V123) { // set stallguard value left
@@ -652,17 +664,25 @@ void setup_motors(){
   q&=0x7F;
   q=q<<16;
   sendData(0xFD, COOLCONF_DEFAULT|q);     // STALLGUARD_M2
-  q=preferences.getLong("accel",0x96);
-  DEBUG_STREAM.print("Acceleration value: ");
+  
+  q=preferences.getLong("accel_1",0x96);
+  DEBUG_STREAM.print("Acceleration1 value: ");
   DEBUG_STREAM.println(q);
   sendData(0xA6, q);     // AMAX_M1
+  
+  q=preferences.getLong("velocity_1",100000);
+  DEBUG_STREAM.print("Velocity1 value: ");
+  DEBUG_STREAM.println(q);
+  sendData(0xA7, q);          // VMAX_M1
+  
+  q=preferences.getLong("accel_2",0x96);
+  DEBUG_STREAM.print("Acceleration2 value: ");
+  DEBUG_STREAM.println(q);
   sendData(0xC6, q);     // AMAX_M2
   
-  q=preferences.getLong("velocity",100000);
-  DEBUG_STREAM.print("Velocity value: ");
+  q=preferences.getLong("velocity_2",100000);
+  DEBUG_STREAM.print("Velocity2 value: ");
   DEBUG_STREAM.println(q);
-  
-  sendData(0xA7, q);          // VMAX_M1
   sendData(0xC7, q);          // VMAX_M2
 }
 
