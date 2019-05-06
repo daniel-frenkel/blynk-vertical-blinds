@@ -14,6 +14,8 @@
 #define DIR_CLOSE 2
 #define COOLCONF_DEFAULT 0
 
+//#define TOTAL_STEPS 1500000
+
 extern Preferences preferences;
 
 int q=0;
@@ -29,6 +31,9 @@ bool tmp_opened=false, tmp_closed=false;
 
 unsigned long sendData(unsigned long address, unsigned long datagram);
 void waitStallM1(long timeout);
+void stopM1();
+void stopM2();
+
 
 void safeDelay(long time){
   time+=millis();
@@ -73,8 +78,8 @@ void setup_motors(){
   pinMode(CLOCKOUT,OUTPUT);
   pinMode(ENABLE_PIN, OUTPUT);
   digitalWrite(chipCS,HIGH);
-  digitalWrite(ENABLE_PIN,HIGH);
-  //digitalWrite(enable,LOW);
+  //digitalWrite(ENABLE_PIN,HIGH);
+  digitalWrite(ENABLE_PIN,LOW);
   
   /*  Dylan Brophy from Upwork, code to create 16 MHz clock output
   *  
@@ -89,8 +94,8 @@ void setup_motors(){
   SPI.setClockDivider(SPI_CLOCK_DIV16);
   SPI.setDataMode(SPI_MODE3);
   SPI.begin(22,23,19,21); // SCLK, MISO, MOSI, SS
-  sendData(0xB4, 0x000);          // make stallguard stop the motor
-  sendData(0xD4, 0x000);          // make stallguard stop the motor
+  sendData(0xB4, 0x400);          // make stallguard stop the motor
+  sendData(0xD4, 0x400);          // make stallguard stop the motor
   
   sendData(0x80, 0x00000300);     // GCONF
   
@@ -141,8 +146,9 @@ void setup_motors(){
   sendData(0xC8, 0x00001000);     // writing value 0x000007D0 = 2000 = 0.0 to address 20 = 0x28(DMAX)
   sendData(0xCA, 0x00001000);     // writing value 0x00000BB8 = 3000 = 0.0 to address 21 = 0x2A(D1)
   sendData(0xCB, 0x0000000A);     // writing value 0x0000000A = 10 = 0.0 to address 22 = 0x2B(VSTOP)
+  stopM1();
+  stopM2();
 }
-
 
 unsigned long sendData(unsigned long address, unsigned long datagram){
   //TMC5130 takes 40 bit data: 8 address and 32 data
@@ -167,49 +173,86 @@ unsigned long sendData(unsigned long address, unsigned long datagram){
   return i_datagram;
 }
 
+bool motor1_running = false;
+bool motor2_running = false;
+
+void opt_motors(){
+  if(!(motor1_running||motor2_running))digitalWrite(ENABLE_PIN,HIGH);
+}
+
 void setM1dir(int dir){
   Serial.print("Setting motor 1 motion direction to ");
   Serial.println(dir);
   digitalWrite(ENABLE_PIN,LOW);
   sendData(0xB4, 0x000);              // reset stallguard
   sendData(0xA0, dir);                // RAMPMODE_M1
-  delay(100);
+  delay(200);
   sendData(0xB4, 0x400);              // make stallguard stop the motor
   stall_timer=millis()+6000;
   one_stall=false;
+  motor1_running = true;
+}
+void setM2dir(int dir){
+  Serial.print("Setting motor 2 motion direction to ");
+  Serial.println(dir);
+  digitalWrite(ENABLE_PIN,LOW);
+  sendData(0xD4, 0x000);              // reset stallguard
+  sendData(0xC0, dir);                // RAMPMODE_M1
+  delay(200);
+  sendData(0xD4, 0x400);              // make stallguard stop the motor
+  stall_timer=millis()+6000;
+  two_stall=false;
+  motor2_running = true;
 }
 
 void stopM1(){
   sendData(0xA3, 0);
   sendData(0xA7, 0);
   sendData(0xA0, 0);
-  while(sendData(0x22, 0)!=0)delay(1);
+  while(sendData(0x22, 0)!=0)delayMicroseconds(10);
+  sendData(0xA1, 0); // target=xactual=0
+  sendData(0xAD, 0);
+  
   sendData(0xA3, 0x180);
   sendData(0xA7, preferences.getLong("velocity_1",100000));
+  motor1_running = false;
+  opt_motors();
 }
 
 void stopM2(){
   sendData(0xC3, 0);
   sendData(0xC7, 0);
   sendData(0xC0, 0);
-  while(sendData(0x22, 0)!=0)delay(1);
+  while(sendData(0x42, 0)!=0)delayMicroseconds(10);
+  sendData(0xC1, 0); // target=xactual=0
+  sendData(0xCD, 0);
+  
   sendData(0xC3, 0x180);
   sendData(0xC7, preferences.getLong("velocity_2",100000));
+  motor2_running = false;
+  opt_motors();
 }
 
 void stall_turn_steps(int dir, int steps){
   setM1dir(dir);
   
   waitStallM1(8000);
-  //Serial.println("End reached. 1s until back");
-  stopM1();
   digitalWrite(ENABLE_PIN,LOW);
+  motor1_running = true;
   sendData(0xB4, 0x000);              // reset stallguard
+  if(dir==2){
+    sendData(0xA1, 0);
+    sendData(0xAD, steps);
+  }else{
+    sendData(0xA1, 0);
+    sendData(0xAD, -steps);
+  }
+  delay(1);
   sendData(0xA0, 0);
-  sendData(0xA1, 0);
-  sendData(0xAD, steps);
   delay(400);
   sendData(0xB4, 0x400);              // reset stallguard
+  while(sendData(0x21, 0)==0)delayMicroseconds(10);
+  while(sendData(0x22, 0)!=0)delayMicroseconds(10);
 }
 void waitStallM1(long timeout){
   timeout+=millis();
@@ -221,7 +264,7 @@ void waitStallM1(long timeout){
       break;
     }
   }while(millis()<timeout);
-  digitalWrite(ENABLE_PIN,HIGH);
+  stopM1();
 }
 void waitStallM2(long timeout){
   timeout+=millis();
@@ -233,7 +276,7 @@ void waitStallM2(long timeout){
       break;
     }
   }while(millis()<timeout);
-  digitalWrite(ENABLE_PIN,HIGH);
+  stopM2();
 }
 void delayStallM1(long timeout){
   timeout+=millis();
@@ -242,7 +285,7 @@ void delayStallM1(long timeout){
     bool stall = (((m1_raw>>24)&1)==1);
     
     if(stall){
-      digitalWrite(ENABLE_PIN,HIGH);
+      stopM1();
     }
   }while(millis()<timeout);
 }
@@ -253,7 +296,7 @@ void delayStallM2(long timeout){
     bool stall = (((m2_raw>>24)&1)==1);
     
     if(stall){
-      digitalWrite(ENABLE_PIN,HIGH);
+      stopM2();
     }
   }while(millis()<timeout);
 }

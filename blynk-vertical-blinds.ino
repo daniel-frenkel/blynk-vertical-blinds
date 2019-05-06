@@ -53,7 +53,7 @@ void setup() {
    &TaskA,                 /* pxCreatedTask */
    1);                     /* xCoreID */ 
 
-  delay(500);
+  //delay(50000);
   Serial.println("Connecting...");
   Blynk.begin(auth, ssid, pass);//, "morningrod.blynk.cc", 8080);
 
@@ -91,16 +91,35 @@ time_store sunset;
 void IndependentTask( void * parameter ){  
   // the internet should not be used AT ALL in this function!!!!
   /*stopM2();
-  stall_turn_steps(1, -20000);
-  waitStallM1(8000);
-  delay(2000);
-  stall_turn_steps(2, 20000);
-  waitStallM1(8000);*/
-  reset_motors(1);
+  setM1dir(1);
+  waitStallM2(8000);
+  delay(3000);
+  setM1dir(2);
+  waitStallM2(8000);
+  delay(3000);*/
+  
+  /*stopM1();
+  setM2dir(1);
+  waitStallM2(8000);
+  delay(3000);
+  setM2dir(2);
+  waitStallM2(8000);
+  delay(3000);//*/
+
+  /*stall_turn_steps(2,200000);
+  Serial.println(sendData(0x21, 0),DEC);
+  delay(3000);
+
+  stall_turn_steps(1,200000);
+
+  Serial.println(sendData(0x21, 0),DEC);
+  
+  
   while(true){
     waitStallM1(1);
-  }
-  /*while(true) {
+    waitStallM2(1);
+  }//*/
+  while(true) {
     safeDelay(0);
     // buttons
     if(!digitalRead(btn1)){
@@ -121,7 +140,7 @@ void IndependentTask( void * parameter ){
       stalled=false;
       safeDelay(200);
     }
-  }*/
+  }//*/
 }
 
 
