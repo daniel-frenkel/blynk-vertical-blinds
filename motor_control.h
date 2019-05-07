@@ -68,7 +68,7 @@ void reset_motors(int dir){
     sendData(0xD4, 0x400);              // make stallguard stop the motor
     //delay(2);
   //}
-  stall_timer=millis()+6000;
+  stall_timer=millis()+15000;
   one_stall=false;
   two_stall=false;
 }
