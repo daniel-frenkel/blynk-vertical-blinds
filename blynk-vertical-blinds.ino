@@ -55,8 +55,9 @@ void setup() {
 
   //delay(50000);
   Serial.println("Connecting...");
-  Blynk.begin(auth, ssid, pass);//, "morningrod.blynk.cc", 8080);
-
+//  Blynk.begin(auth, ssid, pass, "morningrod.blynk.cc", 8080);
+  Blynk.begin(auth, ssid, pass);
+  
   while(!Blynk.connected()){
     delay(300);
     Serial.print(".");

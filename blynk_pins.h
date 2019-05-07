@@ -177,6 +177,7 @@ void execOTA() {
     client.flush();
   }
 }
+
 BLYNK_WRITE(V1) { // Update OTA
   if(param.asInt()!=0){
     execOTA(); // Executes OTA Update
@@ -187,20 +188,36 @@ BLYNK_WRITE(V64) { // sunrise/sunset delay
   sun_delay = param.asInt();
   preferences.putInt("sun_delay", sun_delay);
 }
-BLYNK_WRITE(V12) { // open now
+
+BLYNK_WRITE(V12) { // track open now
   if(param.asInt()!=0){
     q=DIR_OPEN; // tell control loop what to do
   }
 }
-BLYNK_WRITE(V13) { // close now
+
+BLYNK_WRITE(V13) { // track close now
   if(param.asInt()!=0){
     q=DIR_CLOSE; // tell control loop what to do
   }
 }
+
+BLYNK_WRITE(V14) { // shaft open now
+  if(param.asInt()!=0){
+    q=DIR_OPEN; // tell control loop what to do
+  }
+}
+
+BLYNK_WRITE(V15) { // shaft close now
+  if(param.asInt()!=0){
+    q=DIR_CLOSE; // tell control loop what to do
+  }
+}
+
 BLYNK_WRITE(V5) { // open1
   times[0].active=param.asInt()!=0;
   preferences.putUChar("active_0", times[0].active);
 }
+
 BLYNK_WRITE(V7) { // close1
   times[1].active=param.asInt()!=0;
   preferences.putUChar("active_1", times[0].active);
@@ -210,40 +227,41 @@ BLYNK_WRITE(V9) { // open2
   times[2].active=param.asInt()!=0;
   preferences.putUChar("active_2", times[0].active);
 }
+
 BLYNK_WRITE(V11) { // close2
   times[3].active=param.asInt()!=0;
   preferences.putUChar("active_3", times[0].active);
 }
 
-BLYNK_WRITE(V31) { // set acceleration value left
+BLYNK_WRITE(V31) { // set acceleration value shaft
   DEBUG_STREAM.print("set acceleration 1: ");
   long q=param.asInt()*1000L;
   preferences.putLong("accel_1", q);
   DEBUG_STREAM.println(q);
   sendData(0xA6, q);     // AMAX_M1
 }
-BLYNK_WRITE(V32) { // set velocity value left
+BLYNK_WRITE(V32) { // set velocity value shaft
   DEBUG_STREAM.print("set velocity 1: ");
   long q=param.asInt()*1000;
   preferences.putLong("velocity_1", q);
   DEBUG_STREAM.println(q);
   sendData(0xA7, q);     // VMAX_M1
 }
-BLYNK_WRITE(V33) { // set acceleration value right
+BLYNK_WRITE(V33) { // set acceleration value track
   DEBUG_STREAM.print("set acceleration: ");
   long q=param.asInt()*1000L;
   preferences.putLong("accel_2", q);
   DEBUG_STREAM.println(q);
   sendData(0xC6, q);     // AMAX_M2
 }
-BLYNK_WRITE(V34) { // set velocity value right
+BLYNK_WRITE(V34) { // set velocity value track
   DEBUG_STREAM.print("set velocity: ");
   long q=param.asInt()*1000;
   preferences.putLong("velocity_2", q);
   DEBUG_STREAM.println(q);
   sendData(0xC7, q);     // VMAX_M2
 }
-BLYNK_WRITE(V123) { // set stallguard value left
+BLYNK_WRITE(V123) { // set stallguard value shaft
   DEBUG_STREAM.print("set M1 stall: ");
   int q=param.asInt()-64;
   if(q>63)q=63;
@@ -254,7 +272,7 @@ BLYNK_WRITE(V123) { // set stallguard value left
   q=q<<16;
   sendData(0xED, COOLCONF_DEFAULT|q);     // STALLGUARD_M1
 }
-BLYNK_WRITE(V124) { // set stallguard value right
+BLYNK_WRITE(V124) { // set stallguard value track
   DEBUG_STREAM.print("set M2 stall: ");
   int q=param.asInt()-64;
   DEBUG_STREAM.println(q);
