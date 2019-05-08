@@ -9,6 +9,8 @@ long last_timezone_offset=-1;
 
 void save_time(int i);
 
+int command = -1;
+
 WidgetRTC rtc;
 BLYNK_CONNECTED() {
   // Synchronize time on connection
@@ -191,25 +193,25 @@ BLYNK_WRITE(V64) { // sunrise/sunset delay
 
 BLYNK_WRITE(V12) { // track open now
   if(param.asInt()!=0){
-    q=DIR_OPEN; // tell control loop what to do
+    command=TRACK_OPEN; // tell control loop what to do
   }
 }
 
 BLYNK_WRITE(V13) { // track close now
   if(param.asInt()!=0){
-    q=DIR_CLOSE; // tell control loop what to do
+    command=TRACK_CLOSE; // tell control loop what to do
   }
 }
 
 BLYNK_WRITE(V14) { // shaft open now
   if(param.asInt()!=0){
-    q=DIR_OPEN; // tell control loop what to do
+    command=SHAFT_OPEN; // tell control loop what to do
   }
 }
 
 BLYNK_WRITE(V15) { // shaft close now
   if(param.asInt()!=0){
-    q=DIR_CLOSE; // tell control loop what to do
+    command=SHAFT_CLOSE; // tell control loop what to do
   }
 }
 

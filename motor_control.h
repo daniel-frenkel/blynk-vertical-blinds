@@ -12,6 +12,10 @@
 
 #define DIR_OPEN 1
 #define DIR_CLOSE 2
+#define TRACK_OPEN 1
+#define TRACK_CLOSE 2
+#define SHAFT_OPEN 3
+#define SHAFT_CLOSE 4
 #define COOLCONF_DEFAULT 0
 
 //#define TOTAL_STEPS 1500000
@@ -186,7 +190,7 @@ void setM1dir(int dir){
   digitalWrite(ENABLE_PIN,LOW);
   sendData(0xB4, 0x000);              // reset stallguard
   sendData(0xA0, dir);                // RAMPMODE_M1
-  delay(200);
+  delay(70);
   sendData(0xB4, 0x400);              // make stallguard stop the motor
   stall_timer=millis()+6000;
   one_stall=false;
@@ -198,7 +202,7 @@ void setM2dir(int dir){
   digitalWrite(ENABLE_PIN,LOW);
   sendData(0xD4, 0x000);              // reset stallguard
   sendData(0xC0, dir);                // RAMPMODE_M1
-  delay(200);
+  delay(70);
   sendData(0xD4, 0x400);              // make stallguard stop the motor
   stall_timer=millis()+6000;
   two_stall=false;
@@ -232,27 +236,40 @@ void stopM2(){
   motor2_running = false;
   opt_motors();
 }
+void turnStepsM1(int steps){
+  digitalWrite(ENABLE_PIN,LOW);
+  motor1_running = true;
+  sendData(0xB4, 0x000);              // reset stallguard
+  sendData(0xA1, 0);
+  sendData(0xAD, -steps);
+  delay(1);
+  sendData(0xA0, 0);
+  delay(100);
+  sendData(0xB4, 0x400);              // reset stallguard
+  while(sendData(0x21, 0)==0)delayMicroseconds(10);
+  while(sendData(0x22, 0)!=0)delayMicroseconds(10);
+  stopM1();
+}
+void turnStepsM2(int steps){
+  digitalWrite(ENABLE_PIN,LOW);
+  motor2_running = true;
+  sendData(0xD4, 0x000);              // reset stallguard
+  sendData(0xC1, 0);
+  sendData(0xCD, -steps);
+  delay(1);
+  sendData(0xC0, 0);
+  delay(100);
+  sendData(0xD4, 0x400);              // reset stallguard
+  while(sendData(0x41, 0)==0)delayMicroseconds(10);
+  while(sendData(0x42, 0)!=0)delayMicroseconds(10);
+  stopM2();
+}
 
 void stall_turn_steps(int dir, int steps){
   setM1dir(dir);
   
   waitStallM1(8000);
-  digitalWrite(ENABLE_PIN,LOW);
-  motor1_running = true;
-  sendData(0xB4, 0x000);              // reset stallguard
-  if(dir==2){
-    sendData(0xA1, 0);
-    sendData(0xAD, steps);
-  }else{
-    sendData(0xA1, 0);
-    sendData(0xAD, -steps);
-  }
-  delay(1);
-  sendData(0xA0, 0);
-  delay(400);
-  sendData(0xB4, 0x400);              // reset stallguard
-  while(sendData(0x21, 0)==0)delayMicroseconds(10);
-  while(sendData(0x22, 0)!=0)delayMicroseconds(10);
+  turnStepsM1(steps*(-dir+2));
 }
 void waitStallM1(long timeout){
   timeout+=millis();

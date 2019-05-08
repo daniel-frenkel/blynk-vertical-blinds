@@ -124,23 +124,30 @@ void IndependentTask( void * parameter ){
     safeDelay(0);
     // buttons
     if(!digitalRead(btn1)){
-      q=1;
+      command = TRACK_OPEN;
     }
     if(!digitalRead(btn2)){
-      q=2;
+      command = TRACK_CLOSE;
     }
-    
-    if(q_ls!=q){
-      if(!stalled){
-        // if we are changing direction during a motion then force direction change
-        reset_motors(q);
-        safeDelay(10);
-      }
-      reset_motors(q);
-      q_ls=q;
-      stalled=false;
-      safeDelay(200);
+
+
+    // shaft motor is M1, track motor is M2
+    if(command==TRACK_CLOSE){
+      stall_turn_steps(1,5120);
+      setM2dir(1);
+      waitStallM2(15000);
+    }else if(command==TRACK_OPEN){
+      stall_turn_steps(1,5120);
+      setM2dir(2);
+      waitStallM2(15000);
+    }else if(command==SHAFT_CLOSE){
+      stall_turn_steps(1,5120);
+    }else if(command==SHAFT_OPEN){
+      setM1dir(1);
+      waitStallM1(15000);
     }
+    command = -1;
+    delayStallM2(0);
   }//*/
 }
 
