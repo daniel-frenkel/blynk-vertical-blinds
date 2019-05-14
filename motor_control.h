@@ -7,7 +7,7 @@
 #include "pins.h"
 
 #ifndef DEBUG_STREAM
-  #define DEBUG_STREAM Serial
+#define DEBUG_STREAM Serial
 #endif
 
 #define DIR_OPEN 1
