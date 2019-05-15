@@ -121,8 +121,9 @@ void IndependentTask( void * parameter ){
     waitStallM2(1);
   }//*/
   while(true) {
-    safeDelay(0);
     // buttons
+
+    // A press sets the command to open or close the track motor.
     if(!digitalRead(btn1)){
       command = TRACK_OPEN;
     }
@@ -132,22 +133,21 @@ void IndependentTask( void * parameter ){
 
 
     // shaft motor is M1, track motor is M2
+
+    // commands are sent from other threads so that blocking function calls
+    // (like trackClose(), shaftClose(), trackOpen(), and shaftOpen()) can be
+    // called without causing bizzare hickups in the other threads, namely the main thread
+    // which controls Blynk.
     if(command==TRACK_CLOSE){
-      stall_turn_steps(1,5120);
-      setM2dir(1);
-      waitStallM2(15000);
+      trackClose();
     }else if(command==TRACK_OPEN){
-      stall_turn_steps(1,5120);
-      setM2dir(2);
-      waitStallM2(15000);
+      trackOpen();
     }else if(command==SHAFT_CLOSE){
-      stall_turn_steps(1,5120);
+      shaftClose();
     }else if(command==SHAFT_OPEN){
-      setM1dir(1);
-      waitStallM1(15000);
+      shaftOpen();
     }
     command = -1;
-    delayStallM2(0);
   }//*/
 }
 
@@ -213,7 +213,10 @@ void loop() {
         // check week day (day_sel is days since monday, tm_wday is days since sunday)
         if(times[i].day_sel[(ctime.tm_wday+6)%7]){
           // Activate!  Change direction!
-          q=(1+(1&i)); // odd indexes close and even indexes open
+
+          // TODO: fix timing.  Exact operation for this is unknown.
+          
+          //q=(1+(1&i)); // odd indexes close and even indexes open <- old way to set motor direction
         }
       }
     }

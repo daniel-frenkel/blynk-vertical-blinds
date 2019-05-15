@@ -22,10 +22,18 @@
 
 extern Preferences preferences;   // preferences used to configure motor stallguard and curve values.
 
-unsigned long sendData(unsigned long address, unsigned long datagram);
+// These empty function definitions allow the functions to be called before they are created.
+// They are written towards the bottom of the file.
 
+unsigned long sendData(unsigned long address, unsigned long datagram);
 void stopTrackMotor(); // track motor is motor two
 void stopShaftMotor(); // shaft motor is motor one
+void delayTrackStall(long timeout);
+void delayShaftStall(long timeout);
+void waitTrackStall(long timeout);
+void waitShaftStall(long timeout);
+void turnShaftMotor(int dir);
+void turnTrackMotor(int dir);
 
 // these variables keep track of which motors are running
 bool shaft_motor_running = false;
@@ -58,7 +66,7 @@ void shaftOpen(){
   // note:  the following is a modified version of the code in shaftMotorTurnSteps(int steps)
   
   digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
-  motor1_running = true;
+  shaft_motor_running = true;
   sendData(0xB4, 0x000);              // disable stallguard to prevent premature stall
   sendData(0xA1, 0);                  // set XACTUAL to zero
   sendData(0xAD, -5120);              // turn 5120 microsteps (- reverses direction)
@@ -171,7 +179,7 @@ void stopTrackMotor(){
 
 void shaftMotorTurnSteps(int steps){
   digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
-  motor1_running = true;
+  shaft_motor_running = true;         // save that the motor is now running
   sendData(0xB4, 0x000);              // disable stallguard to prevent premature stall
   sendData(0xA1, 0);                  // set XACTUAL to zero and set XTARGET
   sendData(0xAD, steps);
@@ -189,7 +197,7 @@ void shaftMotorTurnSteps(int steps){
 
 void trackMotorTurnSteps(int steps){
   digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
-  motor2_running = true;
+  track_motor_running = true;         // save that the motor is now running
   sendData(0xD4, 0x000);              // disable stallguard to prevent premature stall
   sendData(0xC1, 0);                  // set XACTUAL to zero and set XTARGET
   sendData(0xCD, steps);
@@ -360,7 +368,7 @@ void setup_motors(){
   sendData(0xC8, 0x00001000);     // writing value 0x000007D0 = 2000 = 0.0 to address 20 = 0x28(DMAX)
   sendData(0xCA, 0x00001000);     // writing value 0x00000BB8 = 3000 = 0.0 to address 21 = 0x2A(D1)
   sendData(0xCB, 0x0000000A);     // writing value 0x0000000A = 10 = 0.0 to address 22 = 0x2B(VSTOP)
-  stopM1();
-  stopM2();
+  stopShaftMotor();
+  stopTrackMotor();
 }
 #endif
