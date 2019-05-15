@@ -140,91 +140,112 @@ void opt_motors(){
   if(!(track_motor_running||shaft_motor_running))digitalWrite(ENABLE_PIN,HIGH);
 }
 
-void setM1dir(int dir){
-  Serial.print("Setting motor 1 motion direction to ");
+// this turns on the shaft motor and sets the direction in mode 1 or 2.  Check for stalls!
+void turnShaftMotor(int dir){
+  Serial.print("Setting shaft motor direction to ");
   Serial.println(dir);
-  digitalWrite(ENABLE_PIN,LOW);
-  sendData(0xB4, 0x000);              // reset stallguard
-  sendData(0xA0, dir);                // RAMPMODE_M1
-  delay(70);
+  digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
+  sendData(0xB4, 0x000);              // disable stallguard to prevent a premature stall
+  sendData(0xA0, dir);                // set rampmode to the correct direction
+  delay(70);                          // wait for stallguard to be safe
   sendData(0xB4, 0x400);              // make stallguard stop the motor
-  stall_timer=millis()+6000;
-  one_stall=false;
-  motor1_running = true;
+  shaft_motor_running = true;         // mark that the shaft motor is running
 }
-void setM2dir(int dir){
-  Serial.print("Setting motor 2 motion direction to ");
+
+// this turns on the track motor and sets the direction in mode 1 or 2.  Check for stalls!
+void turnTrackMotor(int dir){
+  Serial.print("Setting track motor direction to ");
   Serial.println(dir);
-  digitalWrite(ENABLE_PIN,LOW);
-  sendData(0xD4, 0x000);              // reset stallguard
-  sendData(0xC0, dir);                // RAMPMODE_M1
-  delay(70);
+  digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
+  sendData(0xD4, 0x000);              // disable stallguard to prevent a premature stall
+  sendData(0xC0, dir);                // set rampmode to the correct direction
+  delay(70);                          // wait for stallguard to be safe
   sendData(0xD4, 0x400);              // make stallguard stop the motor
-  stall_timer=millis()+6000;
-  two_stall=false;
-  motor2_running = true;
+  track_motor_running = true;         // mark that the track motor is running
 }
 
 void stopShaftMotor(){
-  sendData(0xA3, 0);
-  sendData(0xA7, 0);
+  sendData(0xA3, 0);          // set VMAX and VSTART to zero, then enable positioning mode
+  sendData(0xA7, 0);          //  > doing this stops the motor
   sendData(0xA0, 0);
-  while(sendData(0x22, 0)!=0)delayMicroseconds(10);
-  sendData(0xA1, 0); // target=xactual=0
+  while(sendData(0x22, 0)!=0) // wait for the motor to stop (VACTUAL != 0 until stopped)
+    delayMicroseconds(10);
+  sendData(0xA1, 0);          // target=xactual=0 to keep motor stopped
   sendData(0xAD, 0);
   
-  sendData(0xA3, 0x180);
+  sendData(0xA3, 0x180);      // fix VMAX and VSTART to previous values so motor can run again
   sendData(0xA7, preferences.getLong("velocity_1",100000));
-  motor1_running = false;
-  opt_motors();
+  shaft_motor_running = false;// mark that the shaft motor is stopped
+  opt_motors();               // disable the motor driver if possible
 }
 
 void stopTrackMotor(){
-  sendData(0xC3, 0);
-  sendData(0xC7, 0);
+  sendData(0xC3, 0);          // set VMAX and VSTART to zero, then enable positioning mode
+  sendData(0xC7, 0);          //  > doing this stops the motor
   sendData(0xC0, 0);
-  while(sendData(0x42, 0)!=0)delayMicroseconds(10);
-  sendData(0xC1, 0); // target=xactual=0
+  while(sendData(0x42, 0)!=0) // wait for the motor to stop (VACTUAL != 0 until stopped)
+    delayMicroseconds(10);
+  sendData(0xC1, 0);          // target=xactual=0 to keep motor stopped
   sendData(0xCD, 0);
   
-  sendData(0xC3, 0x180);
+  sendData(0xC3, 0x180);      // fix VMAX and VSTART to previous values so motor can run again
   sendData(0xC7, preferences.getLong("velocity_2",100000));
-  motor2_running = false;
-  opt_motors();
-}
-void turnStepsM1(int steps){
-  digitalWrite(ENABLE_PIN,LOW);
-  motor1_running = true;
-  sendData(0xB4, 0x000);              // reset stallguard
-  sendData(0xA1, 0);
-  sendData(0xAD, -steps);
-  delay(1);
-  sendData(0xA0, 0);
-  delay(100);
-  sendData(0xB4, 0x400);              // reset stallguard
-  while(sendData(0x35, 0)&0x200==0)delayMicroseconds(10);
-  stopM1();
-}
-void turnStepsM2(int steps){
-  digitalWrite(ENABLE_PIN,LOW);
-  motor2_running = true;
-  sendData(0xD4, 0x000);              // reset stallguard
-  sendData(0xC1, 0);
-  sendData(0xCD, -steps);
-  delay(1);
-  sendData(0xC0, 0);
-  delay(100);
-  sendData(0xD4, 0x400);              // reset stallguard
-  while(sendData(0x55, 0)&0x200==0)delayMicroseconds(10);
-  stopM2();
+  track_motor_running = false;// mark that the shaft motor is stopped
+  opt_motors();               // disable the motor driver if possible
 }
 
-void stall_turn_steps(int dir, int steps){
-  setM1dir(dir);
-  
-  waitStallM1(8000);
-  turnStepsM1(steps*(-dir+2));
+
+// this function makes the shaft motor turn a certain number of steps.  It is a blocking function,
+// so a function call will wait until the motor has finished moving.
+
+void shaftMotorTurnSteps(int steps){
+  digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
+  motor1_running = true;
+  sendData(0xB4, 0x000);              // disable stallguard to prevent premature stall
+  sendData(0xA1, 0);                  // set XACTUAL to zero and set XTARGET
+  sendData(0xAD, steps);
+  sendData(0xA0, 0);                  // Now we are ready to enable positioning mode
+  delay(100);
+  sendData(0xB4, 0x400);              // enable stallguard - it's safe now.
+  while(sendData(0x35, 0)&0x200==0)   // wait for position_reached flag
+    delayMicroseconds(10);            // waiting here gives time to other CPU processes while we wait
+  stopShaftMotor();                   // position reached - make sure motor is properly stopped
 }
+
+
+// this function makes the track motor turn a certain number of steps.  It is a blocking function,
+// so a function call will wait until the motor has finished moving.
+
+void trackMotorTurnSteps(int steps){
+  digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
+  motor2_running = true;
+  sendData(0xD4, 0x000);              // disable stallguard to prevent premature stall
+  sendData(0xC1, 0);                  // set XACTUAL to zero and set XTARGET
+  sendData(0xCD, steps);
+  sendData(0xC0, 0);                  // Now we are ready to enable positioning mode
+  delay(100);
+  sendData(0xD4, 0x400);              // enable stallguard - it's safe now.
+  while(sendData(0x55, 0)&0x200==0)   // wait for position_reached flag
+    delayMicroseconds(10);            // waiting here gives time to other CPU processes while we wait
+  stopTrackMotor();                   // position reached - make sure motor is properly stopped
+}
+
+void trackClose{
+
+}
+
+void trackOpen{
+
+}
+
+void shaftClose{
+  
+}
+
+void shaftOpen{
+  shaftMotorTurnSteps(-5120);  // turn 5120 steps (- reverses direction)
+}
+
 void waitStallM1(long timeout){
   timeout+=millis();
   do{
@@ -270,6 +291,32 @@ void delayStallM2(long timeout){
       stopM2();
     }
   }while(millis()<timeout);
+}
+
+
+//MOVEMENT FUNCTIONS//
+//These provide the actual movements and are made up of motorControl functions
+
+void move_close{
+  shaftClose(); // We need to close it first in order to find a reference point
+  shaftOpen(); // Need to open the shaft to make sure blinds are in exact position to open
+  trackClose();
+  shaftClose();
+}
+
+void move_open{
+  shaftClose();
+  shaftOpen();
+  trackOpen();
+}
+
+void move_shaft_close{
+  shaftClose();
+}
+
+void move_shaft_open{
+  shaftClose(); // We need to close it first in order to find a reference point
+  shaftOpen();
 }
 
 #endif
