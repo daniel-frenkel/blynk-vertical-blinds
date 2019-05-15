@@ -20,7 +20,7 @@
 
 //#define TOTAL_STEPS 1500000
 
-extern Preferences preferences;
+extern Preferences preferences;   // preferences used to configure motor stallguard and curve values.
 
 unsigned long sendData(unsigned long address, unsigned long datagram);
 
@@ -30,6 +30,78 @@ void stopShaftMotor(); // shaft motor is motor one
 // these variables keep track of which motors are running
 bool shaft_motor_running = false;
 bool track_motor_running = false;
+
+void trackClose(){
+  turnTrackMotor(1);    // tell the motor to use rampmode 1 with stallguard to find a reference
+  waitTrackStall(8000); // if a reference is not found in 8 seconds, stop the motor.
+
+  // this doesn't wait the full 8 seconds unless the motor doesn't stall.
+}
+
+void trackOpen(){
+  turnTrackMotor(2);    // tell the motor to use rampmode 2 with stallguard to find a reference
+  waitTrackStall(8000); // if a reference is not found in 8 seconds, stop the motor.
+
+  // this doesn't wait the full 8 seconds unless the motor doesn't stall.
+}
+
+void shaftClose(){
+  turnShaftMotor(1);    // tell the motor to use rampmode 1 with stallguard to find a reference
+  waitShaftStall(8000); // if a reference is not found in 8 seconds, stop the motor.
+
+  // note in the above code that the function ends as soon as a reference is found, it
+  // doesn't wait the full 8 seconds unless the motor doesn't stall.
+}
+
+void shaftOpen(){
+
+  // note:  the following is a modified version of the code in shaftMotorTurnSteps(int steps)
+  
+  digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
+  motor1_running = true;
+  sendData(0xB4, 0x000);              // disable stallguard to prevent premature stall
+  sendData(0xA1, 0);                  // set XACTUAL to zero
+  sendData(0xAD, -5120);              // turn 5120 microsteps (- reverses direction)
+  sendData(0xA0, 0);                  // Now we are ready to enable positioning mode
+  delay(100);
+  sendData(0xB4, 0x400);              // enable stallguard - it's safe now.
+  while(sendData(0x35, 0)&0x200==0)   // wait for position_reached flag
+    delayMicroseconds(10);            // waiting here gives time to other CPU processes while we wait
+  stopShaftMotor();                   // position reached - make sure motor is properly stopped
+}
+
+
+//MOVEMENT FUNCTIONS//
+//These provide the actual movements and are made up of motorControl functions
+
+void move_close(){
+  shaftClose(); // We need to close it first in order to find a reference point
+  shaftOpen(); // Need to open the shaft to make sure blinds are in exact position to open
+  trackClose();
+  shaftClose();
+}
+
+void move_open(){
+  shaftClose();
+  shaftOpen();
+  trackOpen();
+}
+
+void move_shaft_close(){
+  shaftClose();
+}
+
+void move_shaft_open(){
+  shaftClose(); // We need to close it first in order to find a reference point
+  shaftOpen();
+}
+
+/*  ====================================
+ * 
+ *    BEGIN MOTOR DRIVER BACKEND
+ * 
+ *  ====================================
+ */
 
 // this function disables the TMC5072 if both motors are off.
 //  Under no circumstance does it enable the driver, this is done elsewhere!
@@ -61,6 +133,7 @@ void turnTrackMotor(int dir){
   track_motor_running = true;         // mark that the track motor is running
 }
 
+// gracefully stops the shaft motor and handles background optimizations
 void stopShaftMotor(){
   sendData(0xA3, 0);          // set VMAX and VSTART to zero, then enable positioning mode
   sendData(0xA7, 0);          //  > doing this stops the motor
@@ -76,6 +149,7 @@ void stopShaftMotor(){
   opt_motors();               // disable the motor driver if possible
 }
 
+// gracefully stops the track motor and handles background optimizations
 void stopTrackMotor(){
   sendData(0xC3, 0);          // set VMAX and VSTART to zero, then enable positioning mode
   sendData(0xC7, 0);          //  > doing this stops the motor
@@ -125,22 +199,6 @@ void trackMotorTurnSteps(int steps){
   while(sendData(0x55, 0)&0x200==0)   // wait for position_reached flag
     delayMicroseconds(10);            // waiting here gives time to other CPU processes while we wait
   stopTrackMotor();                   // position reached - make sure motor is properly stopped
-}
-
-void trackClose{
-
-}
-
-void trackOpen{
-
-}
-
-void shaftClose{
-  
-}
-
-void shaftOpen{
-  shaftMotorTurnSteps(-5120);  // turn 5120 steps (- reverses direction)
 }
 
 // This waits for either a shaft motor stall or the timeout to elapse - whichever comes first.
@@ -216,32 +274,6 @@ void delayShaftStall(long timeout){
   }while(millis()<timeout);                 // wait while timeout has not been reached.
 }
 
-
-//MOVEMENT FUNCTIONS//
-//These provide the actual movements and are made up of motorControl functions
-
-void move_close{
-  shaftClose(); // We need to close it first in order to find a reference point
-  shaftOpen(); // Need to open the shaft to make sure blinds are in exact position to open
-  trackClose();
-  shaftClose();
-}
-
-void move_open{
-  shaftClose();
-  shaftOpen();
-  trackOpen();
-}
-
-void move_shaft_close{
-  shaftClose();
-}
-
-void move_shaft_open{
-  shaftClose(); // We need to close it first in order to find a reference point
-  shaftOpen();
-}
-
 // exchange data with the TMC5072
 unsigned long sendData(unsigned long address, unsigned long datagram){
   //TMC5072 takes 40 bits of data: 8 address and 32 data
@@ -307,24 +339,21 @@ void setup_motors(){
   q=q<<16;
   sendData(0xFD, COOLCONF_DEFAULT|q);     // STALLGUARD_M2
   
-  //DEBUG_STREAM.print("Acceleration value: ");
-  //DEBUG_STREAM.println(q);
   sendData(0xA6, preferences.getLong("accel_1",0x96));     // AMAX_M1
   sendData(0xC6, preferences.getLong("accel_2",0x96));     // AMAX_M2
-  
-  //DEBUG_STREAM.print("Velocity value: ");
-  //DEBUG_STREAM.println(q);
   
   sendData(0xA7, preferences.getLong("velocity_1",100000));          // VMAX_M1
   sendData(0xC7, preferences.getLong("velocity_2",100000));          // VMAX_M2
 
   sendData(0xA3, 0x00000180);     // writing value 0x00000000 = 0 = 0.0 to address 15 = 0x23(VSTART)
-  sendData(0xA4, 0x00001000);     // writing value 0x0000012C = 300 = 0.0 to address 16 = 0x24(A1)
-  sendData(0xA5, 0x00020000);     // writing value 0x0000C350 = 50000 = 0.0 to address 17 = 0x25(V1)
   sendData(0xA8, 0x00001000);     // writing value 0x000007D0 = 2000 = 0.0 to address 20 = 0x28(DMAX)
-  sendData(0xAA, 0x00001000);     // writing value 0x00000BB8 = 3000 = 0.0 to address 21 = 0x2A(D1)
-  sendData(0xAB, 0x0000000A);     // writing value 0x0000000A = 10 = 0.0 to address 22 = 0x2B(VSTOP)
-  
+  sendData(0xA4, 100); //A1
+  sendData(0xA5, 100000); //V1
+  sendData(0xA6, 50000); //AMAX
+  sendData(0xA7, 100000); //VMAX
+  sendData(0xAA, 100); //D1
+  sendData(0xAB, 10); //VSTOP
+
   sendData(0xC3, 0x00000180);     // writing value 0x00000000 = 0 = 0.0 to address 15 = 0x23(VSTART)
   sendData(0xC4, 0x00001000);     // writing value 0x0000012C = 300 = 0.0 to address 16 = 0x24(A1)
   sendData(0xC5, 0x00020000);     // writing value 0x0000C350 = 50000 = 0.0 to address 17 = 0x25(V1)
