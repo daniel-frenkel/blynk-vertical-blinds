@@ -27,109 +27,6 @@ unsigned long sendData(unsigned long address, unsigned long datagram);
 void stopTrackMotor(); // track motor is motor two
 void stopShaftMotor(); // shaft motor is motor one
 
-
-void setup_motors(){
-  // put your setup code here, to run once:
-  pinMode(chipCS,OUTPUT);
-  pinMode(CLOCKOUT,OUTPUT);
-  pinMode(ENABLE_PIN, OUTPUT);
-  digitalWrite(chipCS,HIGH);
-  //digitalWrite(ENABLE_PIN,HIGH);
-  digitalWrite(ENABLE_PIN,LOW);
-  
-  /*  Dylan Brophy from Upwork, code to create 16 MHz clock output
-  *  
-  *  This code will print the frequency output when the program starts
-  *  so that it is easy to verify the output frequency is correct.
-  *  
-  *  This code finds the board clock speed using compiler macros; no need
-  *  to specify 80 or 40 MHz.
-  */
-
-  SPI.setBitOrder(MSBFIRST);
-  SPI.setClockDivider(SPI_CLOCK_DIV16);
-  SPI.setDataMode(SPI_MODE3);
-  SPI.begin(22,23,19,21); // SCLK, MISO, MOSI, SS
-  sendData(0xB4, 0x400);          // make stallguard stop the motor
-  sendData(0xD4, 0x400);          // make stallguard stop the motor
-  
-  sendData(0x80, 0x00000300);     // GCONF
-  
-  //2-phase configuration Motor 1
-  sendData(0xEC, 0x01010134);     // CHOPCONF_M1
-  sendData(0xB0, 0x00001600);     // IHOLD_IRUN_M1
-  
-  //2-phase configuration Motor 2
-  
-  sendData(0xFC, 0x01010134);     // CHOPCONF_M2 // My configuration
-  sendData(0xD0, 0x00001600);     // IHOLD_IRUN_M2
-  
-  //Standard values for speed and acceleration
-  int q=preferences.getInt("stallguard_1", -9);
-  DEBUG_STREAM.print("Stall1 value: ");
-  DEBUG_STREAM.println(q);
-  q&=0x7F;
-  q=q<<16;
-  sendData(0xED, COOLCONF_DEFAULT|q);     // STALLGUARD_M1
-  q=preferences.getInt("stallguard_2", -9);
-  DEBUG_STREAM.print("Stall2 value: ");
-  DEBUG_STREAM.println(q);
-  q&=0x7F;
-  q=q<<16;
-  sendData(0xFD, COOLCONF_DEFAULT|q);     // STALLGUARD_M2
-  
-  //DEBUG_STREAM.print("Acceleration value: ");
-  //DEBUG_STREAM.println(q);
-  sendData(0xA6, preferences.getLong("accel_1",0x96));     // AMAX_M1
-  sendData(0xC6, preferences.getLong("accel_2",0x96));     // AMAX_M2
-  
-  //DEBUG_STREAM.print("Velocity value: ");
-  //DEBUG_STREAM.println(q);
-  
-  sendData(0xA7, preferences.getLong("velocity_1",100000));          // VMAX_M1
-  sendData(0xC7, preferences.getLong("velocity_2",100000));          // VMAX_M2
-
-  sendData(0xA3, 0x00000180);     // writing value 0x00000000 = 0 = 0.0 to address 15 = 0x23(VSTART)
-  sendData(0xA4, 0x00001000);     // writing value 0x0000012C = 300 = 0.0 to address 16 = 0x24(A1)
-  sendData(0xA5, 0x00020000);     // writing value 0x0000C350 = 50000 = 0.0 to address 17 = 0x25(V1)
-  sendData(0xA8, 0x00001000);     // writing value 0x000007D0 = 2000 = 0.0 to address 20 = 0x28(DMAX)
-  sendData(0xAA, 0x00001000);     // writing value 0x00000BB8 = 3000 = 0.0 to address 21 = 0x2A(D1)
-  sendData(0xAB, 0x0000000A);     // writing value 0x0000000A = 10 = 0.0 to address 22 = 0x2B(VSTOP)
-  
-  sendData(0xC3, 0x00000180);     // writing value 0x00000000 = 0 = 0.0 to address 15 = 0x23(VSTART)
-  sendData(0xC4, 0x00001000);     // writing value 0x0000012C = 300 = 0.0 to address 16 = 0x24(A1)
-  sendData(0xC5, 0x00020000);     // writing value 0x0000C350 = 50000 = 0.0 to address 17 = 0x25(V1)
-  sendData(0xC8, 0x00001000);     // writing value 0x000007D0 = 2000 = 0.0 to address 20 = 0x28(DMAX)
-  sendData(0xCA, 0x00001000);     // writing value 0x00000BB8 = 3000 = 0.0 to address 21 = 0x2A(D1)
-  sendData(0xCB, 0x0000000A);     // writing value 0x0000000A = 10 = 0.0 to address 22 = 0x2B(VSTOP)
-  stopM1();
-  stopM2();
-}
-
-unsigned long sendData(unsigned long address, unsigned long datagram){
-  //TMC5130 takes 40 bit data: 8 address and 32 data
-  
-  delay(10);
-  uint8_t stat;
-  unsigned long i_datagram=0;
-  
-  digitalWrite(chipCS,LOW);
-  delayMicroseconds(10);
-  
-  stat = SPI.transfer(address);
-  
-  i_datagram |= SPI.transfer((datagram >> 24) & 0xff);
-  i_datagram <<= 8;
-  i_datagram |= SPI.transfer((datagram >> 16) & 0xff);
-  i_datagram <<= 8;
-  i_datagram |= SPI.transfer((datagram >> 8) & 0xff);
-  i_datagram <<= 8;
-  i_datagram |= SPI.transfer((datagram) & 0xff);
-  digitalWrite(chipCS,HIGH);
-  return i_datagram;
-}
-
-
 // these variables keep track of which motors are running
 bool shaft_motor_running = false;
 bool track_motor_running = false;
@@ -246,51 +143,77 @@ void shaftOpen{
   shaftMotorTurnSteps(-5120);  // turn 5120 steps (- reverses direction)
 }
 
-void waitStallM1(long timeout){
-  timeout+=millis();
+// This waits for either a shaft motor stall or the timeout to elapse - whichever comes first.
+// Before it completes it stops the shaft motor - weather it stalled or not.
+
+void waitShaftStall(long timeout){
+  timeout+=millis();                        // end time = current time + timeout
+                                            //  -> end time stored in timeout
   do{
-    unsigned long m1_raw=sendData(0x6F,0);
+    unsigned long m1_raw=sendData(0x6F,0);  // check stall flag
     bool stall = (((m1_raw>>24)&1)==1);
     
-    if(stall){
+    if(stall){                              // break the loop and end the function if there's a stall
       break;
     }
-  }while(millis()<timeout);
-  stopM1();
+    delayMicroseconds(10);                  // yield some CPU time to other CPU tasks while waiting
+  }while(millis()<timeout);                 // wait while timeout has not been reached.
+  stopShaftMotor();                         // stop the motor when done
 }
-void waitStallM2(long timeout){
-  timeout+=millis();
+
+
+// This waits for either a shaft motor stall or the timeout to elapse - whichever comes first.
+// Before it completes it stops the shaft motor - weather it stalled or not.
+
+void waitTrackStall(long timeout){
+  timeout+=millis();                        // end time = current time + timeout
+                                            //  -> end time stored in timeout
+  do{
+    unsigned long m2_raw=sendData(0x7F,0);  // check stall flag
+    bool stall = (((m2_raw>>24)&1)==1);
+    
+    if(stall){                              // break the loop and end the function if there's a stall
+      break;
+    }
+    delayMicroseconds(10);                  // yield some CPU time to other CPU tasks while waiting
+  }while(millis()<timeout);                 // wait while timeout has not been reached.
+  stopTrackMotor();                         // stop the motor when done
+}
+
+
+// This function waits for a certain period of time, and properly stops the track motor if
+//  a stall is detected.  If no stall is detected then the motor is not stopped.
+
+void delayTrackStall(long timeout){
+  timeout+=millis();                        // end time = current time + timeout
+                                            //  -> end time stored in timeout
+  do{
+    unsigned long m1_raw=sendData(0x6F,0);  // check stall flag
+    bool stall = (((m1_raw>>24)&1)==1);
+    
+    if(stall){                              // stop the motor if there is a stall, but keep waiting
+      stopTrackMotor();
+    }
+    delayMicroseconds(10);                  // yield some CPU time to other CPU tasks while waiting
+  }while(millis()<timeout);                 // wait while timeout has not been reached.
+}
+
+
+// This function waits for a certain period of time, and properly stops the shaft motor if
+//  a stall is detected.  If no stall is detected then the motor is not stopped.
+
+void delayShaftStall(long timeout){
+  timeout+=millis();                        // end time = current time + timeout
+                                            //  -> end time stored in timeout
   do{
     unsigned long m2_raw=sendData(0x7F,0);
     bool stall = (((m2_raw>>24)&1)==1);
     
-    if(stall){
-      break;
+    if(stall){                              // stop the motor if there is a stall, but keep waiting
+      stopShaftMotor();
     }
-  }while(millis()<timeout);
-  stopM2();
-}
-void delayStallM1(long timeout){
-  timeout+=millis();
-  do{
-    unsigned long m1_raw=sendData(0x6F,0);
-    bool stall = (((m1_raw>>24)&1)==1);
-    
-    if(stall){
-      stopM1();
-    }
-  }while(millis()<timeout);
-}
-void delayStallM2(long timeout){
-  timeout+=millis();
-  do{
-    unsigned long m2_raw=sendData(0x7F,0);
-    bool stall = (((m2_raw>>24)&1)==1);
-    
-    if(stall){
-      stopM2();
-    }
-  }while(millis()<timeout);
+    delayMicroseconds(10);                  // yield some CPU time to other CPU tasks while waiting
+  }while(millis()<timeout);                 // wait while timeout has not been reached.
 }
 
 
@@ -319,4 +242,96 @@ void move_shaft_open{
   shaftOpen();
 }
 
+// exchange data with the TMC5072
+unsigned long sendData(unsigned long address, unsigned long datagram){
+  //TMC5072 takes 40 bits of data: 8 address and 32 data
+  
+  delay(10);
+  uint8_t stat;
+  unsigned long i_datagram=0;
+  
+  digitalWrite(chipCS,LOW);
+  delayMicroseconds(10);
+  
+  stat = SPI.transfer(address);
+  
+  i_datagram |= SPI.transfer((datagram >> 24) & 0xff);
+  i_datagram <<= 8;
+  i_datagram |= SPI.transfer((datagram >> 16) & 0xff);
+  i_datagram <<= 8;
+  i_datagram |= SPI.transfer((datagram >> 8) & 0xff);
+  i_datagram <<= 8;
+  i_datagram |= SPI.transfer((datagram) & 0xff);
+  digitalWrite(chipCS,HIGH);
+  return i_datagram;
+}
+
+void setup_motors(){
+  // put your setup code here, to run once:
+  pinMode(chipCS,OUTPUT);
+  pinMode(CLOCKOUT,OUTPUT);
+  pinMode(ENABLE_PIN, OUTPUT);
+  digitalWrite(chipCS,HIGH);
+  //digitalWrite(ENABLE_PIN,HIGH);
+  digitalWrite(ENABLE_PIN,LOW);
+
+  SPI.setBitOrder(MSBFIRST);
+  SPI.setClockDivider(SPI_CLOCK_DIV16);
+  SPI.setDataMode(SPI_MODE3);
+  SPI.begin(22,23,19,21); // SCLK, MISO, MOSI, SS
+  sendData(0xB4, 0x400);          // make stallguard stop the motor
+  sendData(0xD4, 0x400);          // make stallguard stop the motor
+  
+  sendData(0x80, 0x00000300);     // GCONF
+  
+  //2-phase configuration Motor 1
+  sendData(0xEC, 0x01010134);     // CHOPCONF_M1
+  sendData(0xB0, 0x00001600);     // IHOLD_IRUN_M1
+  
+  //2-phase configuration Motor 2
+  
+  sendData(0xFC, 0x01010134);     // CHOPCONF_M2 // My configuration
+  sendData(0xD0, 0x00001600);     // IHOLD_IRUN_M2
+  
+  //Standard values for speed and acceleration
+  int q=preferences.getInt("stallguard_1", -9);
+  DEBUG_STREAM.print("Stall1 value: ");
+  DEBUG_STREAM.println(q);
+  q&=0x7F;
+  q=q<<16;
+  sendData(0xED, COOLCONF_DEFAULT|q);     // STALLGUARD_M1
+  q=preferences.getInt("stallguard_2", -9);
+  DEBUG_STREAM.print("Stall2 value: ");
+  DEBUG_STREAM.println(q);
+  q&=0x7F;
+  q=q<<16;
+  sendData(0xFD, COOLCONF_DEFAULT|q);     // STALLGUARD_M2
+  
+  //DEBUG_STREAM.print("Acceleration value: ");
+  //DEBUG_STREAM.println(q);
+  sendData(0xA6, preferences.getLong("accel_1",0x96));     // AMAX_M1
+  sendData(0xC6, preferences.getLong("accel_2",0x96));     // AMAX_M2
+  
+  //DEBUG_STREAM.print("Velocity value: ");
+  //DEBUG_STREAM.println(q);
+  
+  sendData(0xA7, preferences.getLong("velocity_1",100000));          // VMAX_M1
+  sendData(0xC7, preferences.getLong("velocity_2",100000));          // VMAX_M2
+
+  sendData(0xA3, 0x00000180);     // writing value 0x00000000 = 0 = 0.0 to address 15 = 0x23(VSTART)
+  sendData(0xA4, 0x00001000);     // writing value 0x0000012C = 300 = 0.0 to address 16 = 0x24(A1)
+  sendData(0xA5, 0x00020000);     // writing value 0x0000C350 = 50000 = 0.0 to address 17 = 0x25(V1)
+  sendData(0xA8, 0x00001000);     // writing value 0x000007D0 = 2000 = 0.0 to address 20 = 0x28(DMAX)
+  sendData(0xAA, 0x00001000);     // writing value 0x00000BB8 = 3000 = 0.0 to address 21 = 0x2A(D1)
+  sendData(0xAB, 0x0000000A);     // writing value 0x0000000A = 10 = 0.0 to address 22 = 0x2B(VSTOP)
+  
+  sendData(0xC3, 0x00000180);     // writing value 0x00000000 = 0 = 0.0 to address 15 = 0x23(VSTART)
+  sendData(0xC4, 0x00001000);     // writing value 0x0000012C = 300 = 0.0 to address 16 = 0x24(A1)
+  sendData(0xC5, 0x00020000);     // writing value 0x0000C350 = 50000 = 0.0 to address 17 = 0x25(V1)
+  sendData(0xC8, 0x00001000);     // writing value 0x000007D0 = 2000 = 0.0 to address 20 = 0x28(DMAX)
+  sendData(0xCA, 0x00001000);     // writing value 0x00000BB8 = 3000 = 0.0 to address 21 = 0x2A(D1)
+  sendData(0xCB, 0x0000000A);     // writing value 0x0000000A = 10 = 0.0 to address 22 = 0x2B(VSTOP)
+  stopM1();
+  stopM2();
+}
 #endif
