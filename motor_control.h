@@ -22,60 +22,12 @@
 
 extern Preferences preferences;
 
-int q=0;
-int q_ls=0;
-bool stalled=false;
-
-long stall_timer=100000L;
-
-bool one_stall = false;
-bool two_stall = false;
-
-bool tmp_opened=false, tmp_closed=false;
-
 unsigned long sendData(unsigned long address, unsigned long datagram);
-void waitStallM1(long timeout);
-void stopM1();
-void stopM2();
+
+void stopTrackMotor(); // track motor is motor two
+void stopShaftMotor(); // shaft motor is motor one
 
 
-void safeDelay(long time){
-  time+=millis();
-  do{
-    unsigned long m1_raw=sendData(0x7F,0);
-    unsigned long m2_raw=sendData(0x6F,0);
-    one_stall = one_stall||(((m1_raw>>24)&1)==1);
-    two_stall = two_stall||(((m2_raw>>24)&1)==1);
-    bool stall = one_stall&&two_stall;
-    
-    if((stall||(stall_timer<millis()))&&(!stalled)){
-      digitalWrite(ENABLE_PIN,HIGH);
-      stalled=true;
-    }
-  }while(millis()<time);
-}
-void reset_motors(int dir){
-  digitalWrite(ENABLE_PIN,LOW);
-  DEBUG_STREAM.print("Setting motion direction to ");
-  DEBUG_STREAM.println(dir);
-  sendData(0xB4, 0x000);              // reset stallguard
-  sendData(0xD4, 0x000);              // reset stallguard
-  sendData(0xA0, dir);                // RAMPMODE_M1
-  sendData(0xC0, dir);                // RAMPMODE_M2
-  delay(200);//2);
-  //for(int i=0;i<2;i++){
-    sendData(0xB4, 0x000);              // reset stallguard
-    sendData(0xD4, 0x000);              // reset stallguard
-    sendData(0xA0, dir);                // RAMPMODE_M1
-    sendData(0xC0, dir);                // RAMPMODE_M2
-    sendData(0xB4, 0x400);              // make stallguard stop the motor
-    sendData(0xD4, 0x400);              // make stallguard stop the motor
-    //delay(2);
-  //}
-  stall_timer=millis()+15000;
-  one_stall=false;
-  two_stall=false;
-}
 void setup_motors(){
   // put your setup code here, to run once:
   pinMode(chipCS,OUTPUT);
@@ -177,11 +129,15 @@ unsigned long sendData(unsigned long address, unsigned long datagram){
   return i_datagram;
 }
 
-bool motor1_running = false;
-bool motor2_running = false;
 
+// these variables keep track of which motors are running
+bool shaft_motor_running = false;
+bool track_motor_running = false;
+
+// this function disables the TMC5072 if both motors are off.
+//  Under no circumstance does it enable the driver, this is done elsewhere!
 void opt_motors(){
-  if(!(motor1_running||motor2_running))digitalWrite(ENABLE_PIN,HIGH);
+  if(!(track_motor_running||shaft_motor_running))digitalWrite(ENABLE_PIN,HIGH);
 }
 
 void setM1dir(int dir){
@@ -209,7 +165,7 @@ void setM2dir(int dir){
   motor2_running = true;
 }
 
-void stopM1(){
+void stopShaftMotor(){
   sendData(0xA3, 0);
   sendData(0xA7, 0);
   sendData(0xA0, 0);
@@ -223,7 +179,7 @@ void stopM1(){
   opt_motors();
 }
 
-void stopM2(){
+void stopTrackMotor(){
   sendData(0xC3, 0);
   sendData(0xC7, 0);
   sendData(0xC0, 0);
@@ -246,8 +202,7 @@ void turnStepsM1(int steps){
   sendData(0xA0, 0);
   delay(100);
   sendData(0xB4, 0x400);              // reset stallguard
-  while(sendData(0x21, 0)==0)delayMicroseconds(10);
-  while(sendData(0x22, 0)!=0)delayMicroseconds(10);
+  while(sendData(0x35, 0)&0x200==0)delayMicroseconds(10);
   stopM1();
 }
 void turnStepsM2(int steps){
@@ -260,8 +215,7 @@ void turnStepsM2(int steps){
   sendData(0xC0, 0);
   delay(100);
   sendData(0xD4, 0x400);              // reset stallguard
-  while(sendData(0x41, 0)==0)delayMicroseconds(10);
-  while(sendData(0x42, 0)!=0)delayMicroseconds(10);
+  while(sendData(0x55, 0)&0x200==0)delayMicroseconds(10);
   stopM2();
 }
 
