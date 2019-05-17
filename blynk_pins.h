@@ -191,27 +191,27 @@ BLYNK_WRITE(V64) { // sunrise/sunset delay
   preferences.putInt("sun_delay", sun_delay);
 }
 
-BLYNK_WRITE(V12) { // track open now
+BLYNK_WRITE(V12) { // track close now
   if(param.asInt()!=0){
-    command=TRACK_OPEN; // tell control loop what to do
+    move_close(); // tell control loop what to do
   }
 }
 
-BLYNK_WRITE(V13) { // track close now
+BLYNK_WRITE(V13) { // track open now
   if(param.asInt()!=0){
-    command=TRACK_CLOSE; // tell control loop what to do
+    move_open(); // tell control loop what to do
   }
 }
 
-BLYNK_WRITE(V14) { // shaft open now
+BLYNK_WRITE(V14) { // shaft close now
   if(param.asInt()!=0){
-    command=SHAFT_OPEN; // tell control loop what to do
+    move_shaft_close(); // tell control loop what to do
   }
 }
 
-BLYNK_WRITE(V15) { // shaft close now
+BLYNK_WRITE(V15) { // shaft open now
   if(param.asInt()!=0){
-    command=SHAFT_CLOSE; // tell control loop what to do
+    move_shaft_open(); // tell control loop what to do
   }
 }
 
