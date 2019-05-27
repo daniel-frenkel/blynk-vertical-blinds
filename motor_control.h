@@ -40,25 +40,25 @@ bool shaft_motor_running = false;
 bool track_motor_running = false;
 
 void trackClose(){
-  turnTrackMotor(1);    // tell the motor to use rampmode 1 with stallguard to find a reference
+  turnTrackMotor(2);    // tell the motor to use rampmode 1 with stallguard to find a reference
   waitTrackStall(8000); // if a reference is not found in 8 seconds, stop the motor.
 
   // this doesn't wait the full 8 seconds unless the motor doesn't stall.
 }
 
 void trackOpen(){
-  turnTrackMotor(2);    // tell the motor to use rampmode 2 with stallguard to find a reference
+  turnTrackMotor(1);    // tell the motor to use rampmode 2 with stallguard to find a reference
   waitTrackStall(8000); // if a reference is not found in 8 seconds, stop the motor.
 
   // this doesn't wait the full 8 seconds unless the motor doesn't stall.
 }
 
 void shaftClose(){
-  Serial.print("Closing shaft");
+  Serial.println("Closing shaft");
   digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
   sendData(0xB4, 0x000);              // disable stallguard to prevent a premature stall
-  sendData(0xA0, 1);                // set rampmode to the correct direction
-  delay(2000);                          // wait for stallguard to be safe
+  sendData(0xA0, 2);                  // set rampmode to the correct direction
+  delay(70);                          // wait for stallguard to be safe
   sendData(0xB4, 0x400);              // make stallguard stop the motor
   shaft_motor_running = true;         // mark that the shaft motor is running
   waitShaftStall(8000); // if a reference is not found in 8 seconds, stop the motor.
@@ -68,16 +68,17 @@ void shaftClose(){
 }
 
 void shaftOpen(){
-digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
+  Serial.println("Opening shaft");
+  digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
   shaft_motor_running = true;
   sendData(0xB4, 0x000);              // disable stallguard to prevent premature stall
   sendData(0xA1, 0);                  // set XACTUAL to zero
-  sendData(0xAD, -5120);              // turn 5120 microsteps (- reverses direction)
+  sendData(0xAD, 5120);              // turn 5120 microsteps (- reverses direction)
   sendData(0xA0, 0);                  // Now we are ready to enable positioning mode
-  delay(2000);
-  sendData(0xB4, 0x400);              // enable stallguard - it's safe now.
-  while(sendData(0x35, 0)&0x200==0)   // wait for position_reached flag
-    delayMicroseconds(10);            // waiting here gives time to other CPU processes while we wait
+  //delay(120);
+  //sendData(0xB4, 0x400);              // enable stallguard - it's safe now.
+  while((sendData(0x35, 0)&0x200)==0)   // wait for position_reached flag
+    delay(5);                         // waiting here gives time to other CPU processes while we wait
   stopShaftMotor();                   // position reached - make sure motor is properly stopped
 }
 
@@ -89,7 +90,7 @@ void move_close(){
   shaftClose(); // We need to close it first in order to find a reference point
   shaftOpen(); // Need to open the shaft to make sure blinds are in exact position to open
   trackClose();
-  shaftClose();
+  //shaftClose(); // I don't think this should be here
 }
 
 void move_open(){

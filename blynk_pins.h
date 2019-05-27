@@ -193,25 +193,25 @@ BLYNK_WRITE(V64) { // sunrise/sunset delay
 
 BLYNK_WRITE(V12) { // track close now
   if(param.asInt()!=0){
-    move_close(); // tell control loop what to do
+    command = TRACK_CLOSE; // tell control loop what to do
   }
 }
 
 BLYNK_WRITE(V13) { // track open now
   if(param.asInt()!=0){
-    move_open(); // tell control loop what to do
+    command = TRACK_OPEN; // tell control loop what to do
   }
 }
 
 BLYNK_WRITE(V14) { // shaft close now
   if(param.asInt()!=0){
-    move_shaft_close(); // tell control loop what to do
+    command = SHAFT_CLOSE; // tell control loop what to do
   }
 }
 
 BLYNK_WRITE(V15) { // shaft open now
   if(param.asInt()!=0){
-    move_shaft_open(); // tell control loop what to do
+    command = SHAFT_OPEN; // tell control loop what to do
   }
 }
 
