@@ -119,6 +119,10 @@ void IndependentTask( void * parameter ){
 =======
   
   
+<<<<<<< HEAD
+>>>>>>> parent of 6679141... Correct motions - may not work with some motor values.
+=======
+  
 >>>>>>> parent of 6679141... Correct motions - may not work with some motor values.
   while(true){
     waitStallM1(1);
