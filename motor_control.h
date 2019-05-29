@@ -70,10 +70,10 @@ void shaftClose(){
 void shaftOpen(){
 digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
   shaft_motor_running = true;
+  sendData(0xA0, 0);                  // Now we are ready to enable positioning mode
   sendData(0xB4, 0x000);              // disable stallguard to prevent premature stall
   sendData(0xA1, 0);                  // set XACTUAL to zero
-  sendData(0xAD, -5120);              // turn 5120 microsteps (- reverses direction)
-  sendData(0xA0, 0);                  // Now we are ready to enable positioning mode
+  sendData(0xAD, 5120);              // turn 5120 microsteps (- reverses direction)
   delay(2000);
   sendData(0xB4, 0x400);              // enable stallguard - it's safe now.
   while(sendData(0x35, 0)&0x200==0)   // wait for position_reached flag
