@@ -34,9 +34,9 @@ String getHeaderValue(String header, String headerName) {
   return header.substring(strlen(headerName.c_str()));
 }
 
-// OTA Logic 
+// OTA Logic
 void execOTA() {
-  
+
   DEBUG_STREAM.println("Connecting to: " + String(host));
   // Connect to S3
   if (client.connect(host.c_str(), port)) {
@@ -79,7 +79,7 @@ void execOTA() {
         Content-Type: application/octet-stream
         Content-Length: 357280
         Server: AmazonS3
-                                   
+
         {{BIN FILE CONTENTS}}
 
     */
@@ -193,25 +193,25 @@ BLYNK_WRITE(V64) { // sunrise/sunset delay
 
 BLYNK_WRITE(V12) { // track close now
   if(param.asInt()!=0){
-    move_close(); // tell control loop what to do
+    command = TRACK_CLOSE; // tell control loop what to do
   }
 }
 
 BLYNK_WRITE(V13) { // track open now
   if(param.asInt()!=0){
-    move_open(); // tell control loop what to do
+    command = TRACK_OPEN; // tell control loop what to do
   }
 }
 
 BLYNK_WRITE(V14) { // shaft close now
   if(param.asInt()!=0){
-    move_shaft_close(); // tell control loop what to do
+    command = SHAFT_CLOSE; // tell control loop what to do
   }
 }
 
 BLYNK_WRITE(V15) { // shaft open now
   if(param.asInt()!=0){
-    move_shaft_open(); // tell control loop what to do
+    command = SHAFT_OPEN; // tell control loop what to do
   }
 }
 
