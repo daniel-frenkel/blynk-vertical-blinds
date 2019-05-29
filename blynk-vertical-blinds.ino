@@ -55,7 +55,7 @@ void setup() {
 
   //delay(50000);
   Serial.println("Connecting...");
-  Blynk.begin(auth, ssid, pass);//, "morningrod.blynk.cc", 8080);
+  Blynk.begin(auth, ssid, pass, "morningrod.blynk.cc", 8080);
 //  Blynk.begin(auth, ssid, pass);
 
   while(!Blynk.connected()){
@@ -114,7 +114,12 @@ void IndependentTask( void * parameter ){
   stall_turn_steps(1,200000);
 
   Serial.println(sendData(0x21, 0),DEC);
+<<<<<<< HEAD
 
+=======
+  
+  
+>>>>>>> parent of 6679141... Correct motions - may not work with some motor values.
   while(true){
     waitStallM1(1);
     waitStallM2(1);
@@ -130,6 +135,7 @@ void IndependentTask( void * parameter ){
       command = TRACK_CLOSE;
     }
 
+
     // shaft motor is M1, track motor is M2
 
     // commands are sent from other threads so that blocking function calls
@@ -137,13 +143,13 @@ void IndependentTask( void * parameter ){
     // called without causing bizzare hickups in the other threads, namely the main thread
     // which controls Blynk.
     if(command==TRACK_CLOSE){
-      move_close();
+      trackClose();
     }else if(command==TRACK_OPEN){
-      move_open();
+      trackOpen();
     }else if(command==SHAFT_CLOSE){
-      move_shaft_close();
+      shaftClose();
     }else if(command==SHAFT_OPEN){
-      move_shaft_open();
+      shaftOpen();
     }
     command = -1;
   }//*/
