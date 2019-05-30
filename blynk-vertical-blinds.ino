@@ -4,11 +4,11 @@
 
 #define BLYNK_PRINT Serial
 #include <BlynkSimpleEsp32.h>
-#include <SPI.h>
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
-#include <WiFiClientSecure.h>
+#include <SPI.h> 
+#include <WiFi.h> 
+#include <HTTPClient.h> 
+#include <ArduinoJson.h> 
+#include <WiFiClientSecure.h> 
 #include <TimeLib.h>
 #include <WidgetRTC.h>
 #include <Update.h>
@@ -51,22 +51,22 @@ void setup() {
    NULL,                   /* pvParameters */
    1,                      /* uxPriority */
    &TaskA,                 /* pxCreatedTask */
-   1);                     /* xCoreID */
+   1);                     /* xCoreID */ 
 
   //delay(50000);
   Serial.println("Connecting...");
   Blynk.begin(auth, ssid, pass, "morningrod.blynk.cc", 8080);
 //  Blynk.begin(auth, ssid, pass);
-
+  
   while(!Blynk.connected()){
     delay(300);
     Serial.print(".");
   }
-
+ 
   DEBUG_STREAM.println("Connected!");
   //setSyncInterval(10 * 60);
   //DEBUG_STREAM.println("Done.");
-
+  
   lat=preferences.getFloat("lat", -1);
   lon=preferences.getFloat("lon", -1);
   DEBUG_STREAM.println("Loading timetables...");
@@ -89,7 +89,7 @@ void setup() {
 time_store sunrise;
 time_store sunset;
 
-void IndependentTask( void * parameter ){
+void IndependentTask( void * parameter ){  
   // the internet should not be used AT ALL in this function!!!!
   /*stopM2();
   setM1dir(1);
@@ -98,7 +98,7 @@ void IndependentTask( void * parameter ){
   setM1dir(2);
   waitStallM2(8000);
   delay(3000);*/
-
+  
   /*stopM1();
   setM2dir(1);
   waitStallM2(8000);
@@ -114,16 +114,7 @@ void IndependentTask( void * parameter ){
   stall_turn_steps(1,200000);
 
   Serial.println(sendData(0x21, 0),DEC);
-<<<<<<< HEAD
-
-=======
   
-  
-<<<<<<< HEAD
->>>>>>> parent of 6679141... Correct motions - may not work with some motor values.
-=======
-  
->>>>>>> parent of 6679141... Correct motions - may not work with some motor values.
   while(true){
     waitStallM1(1);
     waitStallM2(1);
@@ -139,7 +130,6 @@ void IndependentTask( void * parameter ){
       command = TRACK_CLOSE;
     }
 
-
     // shaft motor is M1, track motor is M2
 
     // commands are sent from other threads so that blocking function calls
@@ -147,13 +137,13 @@ void IndependentTask( void * parameter ){
     // called without causing bizzare hickups in the other threads, namely the main thread
     // which controls Blynk.
     if(command==TRACK_CLOSE){
-      trackClose();
+      move_close();
     }else if(command==TRACK_OPEN){
-      trackOpen();
+      move_open();
     }else if(command==SHAFT_CLOSE){
-      shaftClose();
+      move_shaft_close();
     }else if(command==SHAFT_OPEN){
-      shaftOpen();
+      move_shaft_open();
     }
     command = -1;
   }//*/
@@ -163,7 +153,7 @@ void IndependentTask( void * parameter ){
 void loop() {
   // This handles the network and cloud connection
   Blynk.run();
-
+  
   if(check_timer<millis()){
     check_timer=millis()+20000; // check every 20 seconds. (avoid missing minutes)
     // get the current time
@@ -184,7 +174,7 @@ void loop() {
     DEBUG_STREAM.println(last_timezone_offset);
     DEBUG_STREAM.print("GPS looks valid: ");
     DEBUG_STREAM.println((lon==0||lat==0||lon==-1||lat==-1) ? "NO" : "YES");
-
+    
     for(int i=0;i<4;i++){
       DEBUG_STREAM.print("Check: ");
       DEBUG_STREAM.print(i);
@@ -192,7 +182,7 @@ void loop() {
       DEBUG_STREAM.println((bool)times[i].active);
       // don't waste CPU time
       if(!times[i].active)continue;
-
+      
       if(times[i].type==1){ // sunrise
         // change times[i] to target the sunrise
         times[i].minute=sunrise.minute;
@@ -223,19 +213,19 @@ void loop() {
           // Activate!  Change direction!
 
           // TODO: fix timing.  Exact operation for this is unknown.
-
+          
           //q=(1+(1&i)); // odd indexes close and even indexes open <- old way to set motor direction
         }
       }
     }
   }
-
+  
   // find out what time the sunrise/sunset is once a day, super early in the morning
   if(daylight_timer<millis()){
     daylight_timer=millis()+86400000;
     HTTPClient http;
     http.begin(sunsetsunrisebaseurl+String(lon)+"&lat="+String(lat));
-
+    
     if(http.GET()<0)return; // error
     const char* data=http.getString().c_str();
     StaticJsonDocument<800> doc;
@@ -247,7 +237,7 @@ void loop() {
       DEBUG_STREAM.println(error.c_str());
       return;
     }
-
+  
     // Get the root object in the document
     JsonObject root = doc.as<JsonObject>()["results"];
     String sunrise_str = root["sunrise"]; // "2018-09-09T05:55:31+00:00"
@@ -263,7 +253,7 @@ void loop() {
     sunset.hour=sunset_hr;
     sunset.minute=sunset_min;
     //last_timezone_offset=-1;// force update of timezone and time data
-  }
+  } 
 }
 
 void save_time(int i){
@@ -279,7 +269,7 @@ void save_time(int i){
   }else
     DEBUG_STREAM.println(" > Active at sunset.");
   // make one string variable to save CPU power and memory
-  String num_=String(i);
+  String num_=String(i); 
   preferences.putUInt(("hour_"+num_).c_str(), times[i].hour);
   preferences.putUInt(("minute_"+num_).c_str(), times[i].minute);
   preferences.putUInt(("type_"+num_).c_str(), times[i].type);
@@ -291,7 +281,7 @@ void save_time(int i){
 }
 void load_time(int i){
   // make one string variable to save CPU power and memory
-  String num_=String(i);
+  String num_=String(i); 
   DEBUG_STREAM.print("Reloading timer ");
   DEBUG_STREAM.println(i);
   times[i].hour=preferences.getUInt(("hour_"+num_).c_str(),12);

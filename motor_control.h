@@ -40,45 +40,45 @@ bool shaft_motor_running = false;
 bool track_motor_running = false;
 
 void trackClose(){
-  turnTrackMotor(1);    // tell the motor to use rampmode 1 with stallguard to find a reference
-  waitTrackStall(8000); // if a reference is not found in 8 seconds, stop the motor.
+  turnTrackMotor(4);    // tell the motor to use rampmode 1 with stallguard to find a reference
+  waitTrackStall(12000); // if a reference is not found in 8 seconds, stop the motor.
 
   // this doesn't wait the full 8 seconds unless the motor doesn't stall.
 }
 
 void trackOpen(){
   turnTrackMotor(2);    // tell the motor to use rampmode 2 with stallguard to find a reference
-  waitTrackStall(8000); // if a reference is not found in 8 seconds, stop the motor.
+  waitTrackStall(12000); // if a reference is not found in 8 seconds, stop the motor.
 
   // this doesn't wait the full 8 seconds unless the motor doesn't stall.
 }
 
 void shaftClose(){
-  Serial.print("Closing shaft");
+  Serial.println("Closing shaft");
   digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
   sendData(0xB4, 0x000);              // disable stallguard to prevent a premature stall
-  sendData(0xA0, 1);                // set rampmode to the correct direction
-  delay(2000);                          // wait for stallguard to be safe
+  sendData(0xA0, 2);                  // set rampmode to the correct direction
+  delay(70);                          // wait for stallguard to be safe
   sendData(0xB4, 0x400);              // make stallguard stop the motor
   shaft_motor_running = true;         // mark that the shaft motor is running
-  waitShaftStall(8000); // if a reference is not found in 8 seconds, stop the motor.
+  waitShaftStall(4000); // if a reference is not found in 8 seconds, stop the motor.
 
   // note in the above code that the function ends as soon as a reference is found, it
   // doesn't wait the full 8 seconds unless the motor doesn't stall.
 }
 
 void shaftOpen(){
-digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
+  Serial.println("Opening shaft");
+  digitalWrite(ENABLE_PIN,LOW);       // enable the TMC5072
   shaft_motor_running = true;
-  sendData(0xA0, 0);                  // Now we are ready to enable positioning mode
   sendData(0xB4, 0x000);              // disable stallguard to prevent premature stall
   sendData(0xA1, 0);                  // set XACTUAL to zero
-  sendData(0xAD, -5120);              // turn 5120 microsteps (- reverses direction)
+  sendData(0xAD, 9000);              // turn 5120 microsteps (- reverses direction)
   sendData(0xA0, 0);                  // Now we are ready to enable positioning mode
-  delay(2000);
-  sendData(0xB4, 0x400);              // enable stallguard - it's safe now.
-  while(sendData(0x35, 0)&0x200==0)   // wait for position_reached flag
-    delayMicroseconds(10);            // waiting here gives time to other CPU processes while we wait
+  //delay(120);
+  //sendData(0xB4, 0x400);              // enable stallguard - it's safe now.
+  while((sendData(0x35, 0)&0x200)==0)   // wait for position_reached flag
+    delay(5);                         // waiting here gives time to other CPU processes while we wait
   stopShaftMotor();                   // position reached - make sure motor is properly stopped
 }
 
@@ -90,7 +90,7 @@ void move_close(){
   shaftClose(); // We need to close it first in order to find a reference point
   shaftOpen(); // Need to open the shaft to make sure blinds are in exact position to open
   trackClose();
-  shaftClose();
+  shaftClose(); // Closes blinds vertically
 }
 
 void move_open(){
@@ -109,9 +109,9 @@ void move_shaft_open(){
 }
 
 /*  ====================================
- *
+ * 
  *    BEGIN MOTOR DRIVER BACKEND
- *
+ * 
  *  ====================================
  */
 
@@ -142,7 +142,7 @@ void stopShaftMotor(){
     delayMicroseconds(10);
   sendData(0xA1, 0);          // target=xactual=0 to keep motor stopped
   sendData(0xAD, 0);
-
+  
   sendData(0xA3, 0x180);      // fix VMAX and VSTART to previous values so motor can run again
   sendData(0xA7, preferences.getLong("velocity_1",100000));
   shaft_motor_running = false;// mark that the shaft motor is stopped
@@ -158,7 +158,7 @@ void stopTrackMotor(){
     delayMicroseconds(10);
   sendData(0xC1, 0);          // target=xactual=0 to keep motor stopped
   sendData(0xCD, 0);
-
+  
   sendData(0xC3, 0x180);      // fix VMAX and VSTART to previous values so motor can run again
   sendData(0xC7, preferences.getLong("velocity_2",100000));
   track_motor_running = false;// mark that the shaft motor is stopped
@@ -176,7 +176,7 @@ void waitShaftStall(long timeout){
   do{
     unsigned long m1_raw=sendData(0x6F,0);  // check stall flag
     bool stall = (((m1_raw>>24)&1)==1);
-
+    
     if(stall){                              // break the loop and end the function if there's a stall
       break;
     }
@@ -195,7 +195,7 @@ void waitTrackStall(long timeout){
   do{
     unsigned long m2_raw=sendData(0x7F,0);  // check stall flag
     bool stall = (((m2_raw>>24)&1)==1);
-
+    
     if(stall){                              // break the loop and end the function if there's a stall
       break;
     }
@@ -214,7 +214,7 @@ void delayTrackStall(long timeout){
   do{
     unsigned long m1_raw=sendData(0x6F,0);  // check stall flag
     bool stall = (((m1_raw>>24)&1)==1);
-
+    
     if(stall){                              // stop the motor if there is a stall, but keep waiting
       stopTrackMotor();
     }
@@ -232,7 +232,7 @@ void delayShaftStall(long timeout){
   do{
     unsigned long m2_raw=sendData(0x7F,0);
     bool stall = (((m2_raw>>24)&1)==1);
-
+    
     if(stall){                              // stop the motor if there is a stall, but keep waiting
       stopShaftMotor();
     }
@@ -243,16 +243,16 @@ void delayShaftStall(long timeout){
 // exchange data with the TMC5072
 unsigned long sendData(unsigned long address, unsigned long datagram){
   //TMC5072 takes 40 bits of data: 8 address and 32 data
-
+  
   delay(10);
   uint8_t stat;
   unsigned long i_datagram=0;
-
+  
   digitalWrite(chipCS,LOW);
   delayMicroseconds(10);
-
+  
   stat = SPI.transfer(address);
-
+  
   i_datagram |= SPI.transfer((datagram >> 24) & 0xff);
   i_datagram <<= 8;
   i_datagram |= SPI.transfer((datagram >> 16) & 0xff);
@@ -279,18 +279,18 @@ void setup_motors(){
   SPI.begin(22,23,19,21); // SCLK, MISO, MOSI, SS
   sendData(0xB4, 0x400);          // make stallguard stop the motor
   sendData(0xD4, 0x400);          // make stallguard stop the motor
-
+  
   sendData(0x80, 0x00000300);     // GCONF
-
+  
   //2-phase configuration Motor 1
   sendData(0xEC, 0x01010134);     // CHOPCONF_M1
   sendData(0xB0, 0x00001600);     // IHOLD_IRUN_M1
-
+  
   //2-phase configuration Motor 2
-
+  
   sendData(0xFC, 0x01010134);     // CHOPCONF_M2 // My configuration
   sendData(0xD0, 0x00001600);     // IHOLD_IRUN_M2
-
+  
   //Standard values for speed and acceleration
   int q=preferences.getInt("stallguard_1", -9);
   DEBUG_STREAM.print("Stall1 value: ");
@@ -304,10 +304,10 @@ void setup_motors(){
   q&=0x7F;
   q=q<<16;
   sendData(0xFD, COOLCONF_DEFAULT|q);     // STALLGUARD_M2
-
+  
   sendData(0xA6, preferences.getLong("accel_1",0x96));     // AMAX_M1
   sendData(0xC6, preferences.getLong("accel_2",0x96));     // AMAX_M2
-
+  
   sendData(0xA7, preferences.getLong("velocity_1",100000));          // VMAX_M1
   sendData(0xC7, preferences.getLong("velocity_2",100000));          // VMAX_M2
 
