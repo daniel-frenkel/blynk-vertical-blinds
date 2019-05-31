@@ -215,6 +215,18 @@ BLYNK_WRITE(V15) { // shaft open now
   }
 }
 
+BLYNK_WRITE(V16) { // track close now
+  if(param.asInt()!=0){
+    trackClose(); // tell control loop what to do
+  }
+}
+
+BLYNK_WRITE(V17) { // track open now
+  if(param.asInt()!=0){
+    trackOpen(); // tell control loop what to do
+  }
+}
+
 BLYNK_WRITE(V5) { // open1
   times[0].active=param.asInt()!=0;
   preferences.putUChar("active_0", times[0].active);
@@ -237,14 +249,14 @@ BLYNK_WRITE(V11) { // close2
 
 BLYNK_WRITE(V31) { // set acceleration value shaft
   DEBUG_STREAM.print("set acceleration 1: ");
-  long q=param.asInt()*1000L;
+  long q=param.asInt()*100L;
   preferences.putLong("accel_1", q);
   DEBUG_STREAM.println(q);
   sendData(0xA6, q);     // AMAX_M1
 }
 BLYNK_WRITE(V32) { // set velocity value shaft
   DEBUG_STREAM.print("set velocity 1: ");
-  long q=param.asInt()*1000;
+  long q=param.asInt()*100;
   preferences.putLong("velocity_1", q);
   DEBUG_STREAM.println(q);
   sendData(0xA7, q);     // VMAX_M1

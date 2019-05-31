@@ -40,17 +40,17 @@ bool shaft_motor_running = false;
 bool track_motor_running = false;
 
 void trackClose(){
-  turnTrackMotor(4);    // tell the motor to use rampmode 1 with stallguard to find a reference
-  waitTrackStall(12000); // if a reference is not found in 8 seconds, stop the motor.
+  turnTrackMotor(1);    // tell the motor to use rampmode 1 with stallguard to find a reference
+  waitTrackStall(18000); // if a reference is not found in 8 seconds, stop the motor.
 
-  // this doesn't wait the full 8 seconds unless the motor doesn't stall.
+  // this doesn't wait the full 18 seconds unless the motor doesn't stall.
 }
 
 void trackOpen(){
   turnTrackMotor(2);    // tell the motor to use rampmode 2 with stallguard to find a reference
-  waitTrackStall(12000); // if a reference is not found in 8 seconds, stop the motor.
+  waitTrackStall(18000); // if a reference is not found in 8 seconds, stop the motor.
 
-  // this doesn't wait the full 8 seconds unless the motor doesn't stall.
+  // this doesn't wait the full 18 seconds unless the motor doesn't stall.
 }
 
 void shaftClose(){
@@ -61,7 +61,7 @@ void shaftClose(){
   delay(70);                          // wait for stallguard to be safe
   sendData(0xB4, 0x400);              // make stallguard stop the motor
   shaft_motor_running = true;         // mark that the shaft motor is running
-  waitShaftStall(4000); // if a reference is not found in 8 seconds, stop the motor.
+  waitShaftStall(6000); // if a reference is not found in 6 seconds, stop the motor.
 
   // note in the above code that the function ends as soon as a reference is found, it
   // doesn't wait the full 8 seconds unless the motor doesn't stall.

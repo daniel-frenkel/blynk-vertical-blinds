@@ -124,10 +124,10 @@ void IndependentTask( void * parameter ){
 
     // A press sets the command to open or close the track motor.
     if(!digitalRead(btn1)){
-      command = TRACK_OPEN;
+      command = TRACK_CLOSE;
     }
     if(!digitalRead(btn2)){
-      command = TRACK_CLOSE;
+      command = TRACK_OPEN;
     }
 
     // shaft motor is M1, track motor is M2
